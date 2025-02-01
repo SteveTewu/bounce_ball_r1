@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bouncing Ball in Spinning Hexagon</title>
+    <style>
+        canvas {
+            border: 2px solid #333;
+            background: #f0f0f0;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const CENTER = { x: canvas.width/2, y: canvas.height/2 };
+        const HEX_RADIUS = 250;
+        const BALL_RADIUS = 12;
+        const GRAVITY = 0.5;
+        const FRICTION = 0.99;
+        const RESTITUTION = 0.85;
+        const ROTATION_SPEED = 0.02;
+
+        let hexRotation = 0;
+        let ball = {
+            pos: { x: CENTER.x, y: CENTER.y },
+            vel: { x: 5, y: -10 }
+        };
+
+        function getHexPoints() {
+            const points = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = hexRotation + i * Math.PI / 3;
+                points.push({
+                    x: CENTER.x + HEX_RADIUS * Math.cos(angle),
+                    y: CENTER.y + HEX_RADIUS * Math.sin(angle)
+                });
+            }
+            return points;
+        }
+
+        function closestPointOnSegment(p, a, b) {
+            const ap = { x: p.x - a.x, y: p.y - a.y };
+            const ab = { x: b.x - a.x, y: b.y - a.y };
+            const t = Math.max(0, Math.min(1, (ap.x * ab.x + ap.y * ab.y) / (ab.x**2 + ab.y**2)));
+            return { 
+                x: a.x + ab.x * t,
+                y: a.y + ab.y * t,
+                t: t
+            };
+        }
+
+        function checkCollisions() {
+            const points = getHexPoints();
+            
+            for (let i = 0; i < 6; i++) {
+                const a = points[i];
+                const b = points[(i+1)%6];
+                const closest = closestPointOnSegment(ball.pos, a, b);
+                
+                const dx = ball.pos.x - closest.x;
+                const dy = ball.pos.y - closest.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance < BALL_RADIUS) {
+                    // Collision response
+                    const normal = { 
+                        x: (closest.y - a.y) - (b.y - a.y),
+                        y: (b.x - a.x) - (closest.x - a.x)
+                    };
+                    const len = Math.sqrt(normal.x**2 + normal.y**2);
+                    normal.x /= len;
+                    normal.y /= len;
+
+                    const dot = ball.vel.x * normal.x + ball.vel.y * normal.y;
+                    ball.vel.x -= 2 * dot * normal.x * RESTITUTION;
+                    ball.vel.y -= 2 * dot * normal.y * RESTITUTION;
+
+                    // Position correction
+                    const overlap = BALL_RADIUS - distance;
+                    ball.pos.x += normal.x * overlap;
+                    ball.pos.y += normal.y * overlap;
+                }
+            }
+        }
+
+        function update() {
+            // Apply physics
+            ball.vel.y += GRAVITY;
+            ball.vel.x *= FRICTION;
+            ball.vel.y *= FRICTION;
+            
+            // Update position
+            ball.pos.x += ball.vel.x;
+            ball.pos.y += ball.vel.y;
+
+            // Check collisions
+            checkCollisions();
+
+            // Rotate hexagon
+            hexRotation += ROTATION_SPEED;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw hexagon
+            ctx.beginPath();
+            const points = getHexPoints();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < 6; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Draw ball
+            ctx.beginPath();
+            ctx.arc(ball.pos.x, ball.pos.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.strokeStyle = '#c0392b';
+            ctx.stroke();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the simulation
+        gameLoop();
+    </script>
+</body>
+</html>
